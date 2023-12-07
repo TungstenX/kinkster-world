@@ -1,9 +1,26 @@
 <?php
-
+/**
+TODO List:
+1. Add clip-art-ish profile pics
+1.1. Enable clicking on other images to change profile pic - not to be uploaded
+2. Show all images belonging to user as thumb nail
+3. Highlight current profile pic
+4. Enable clicking on other images to change profile pic - not to be uploaded
+**/
 namespace App\Http\Controllers;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+
+use App\Http\Controllers\ImageController;
+
 use App\Models\User;
+use App\Models\Pic;
+use App\Models\UserPref;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -26,6 +43,23 @@ class UserController extends Controller
 
     $user->save();
 
+    // create prefs
+    $postAudiencePref = new UserPref();
+    $postAudiencePref->user_id = $user->id;
+    $postAudiencePref->key = 'Post Audience';
+    $postAudiencePref->value = 'public';
+    $postAudiencePref->save();
+    $postAudiencePref = new UserPref();
+    $postAudiencePref->user_id = $user->id;
+    $postAudiencePref->key = 'Posts Per Page';
+    $postAudiencePref->value = '20';
+    $postAudiencePref->save();
+    $postAudiencePref = new UserPref();
+    $postAudiencePref->user_id = $user->id;
+    $postAudiencePref->key = 'Friends Per Page';
+    $postAudiencePref->value = '20';
+    $postAudiencePref->save();
+
     Auth::login($user);
     return redirect()->route('dashboard');
   }
@@ -41,51 +75,107 @@ class UserController extends Controller
     {
       return redirect()->route('dashboard');
     }
+
     return redirect()->back();
   }
-  
-  public function getLogout()
-  {
-      Auth::logout();
-      return redirect()->route('home');
-  }
+
+    public function getLogout()
+    {
+        Auth::logout();
+        return redirect()->route('home');
+    }
 
   public function getAccount()
   {
-      return view('account', ['user' => Auth::user()]);
+    $user = Auth::user();
+    if (!Auth::user()) {
+      return redirect()->route('home');
+    }
+    $pic = Pic::where('user_id', $user->id)->where('profile', true)->first();
+
+    $filename = "";//should be default blank one?
+    if($pic)
+    {
+      $filename = $pic->filename;
+    }
+    return view('account', ['user' => $user, 'profilePic' => $filename, 'prefs' => $user->userPrefs()->get()]);
   }
 
+  /**
+  * TODO: Check file types
+  **/
   public function postSaveAccount(Request $request)
   {
-      $this->validate($request, [
-         'name' => 'required|max:120'
-      ]);
+  /*
+  nie required nie, net vir voorbeeld
+  'attachment' => [
+            'required',
+            File::types(['mp3', 'wav'])
+                ->min(1024)
+                ->max(12 * 1024),
 
-      $user = Auth::user();
-      $old_name = $user->name;
-      $user->name = $request['name'];
-      $user->update();
-      $file = $request->file('image');
-      $filename = $request['name'] . '-' . $user->id . '.jpg';
-      $old_filename = $old_name . '-' . $user->id . '.jpg';
-      $update = false;
-      if (Storage::disk('local')->has($old_filename)) {
-          $old_file = Storage::disk('local')->get($old_filename);
-          Storage::disk('local')->put($filename, $old_file);
-          $update = true;
+                       photo' => [
+                               'required',
+                                File::image()
+                            ->min(1024)
+                            ->max(12 * 1024)
+                            ->dimensions(Rule::dimensions()->maxWidth(1000)->maxHeight(500)),
+                */
+    $this->validate($request, [
+      'name' => 'required|max:120',
+      'f_pref_Post_Audience' => 'required|in:private,friends,circle,public',
+      'f_pref_Posts_Per_Page' => 'required|integer',
+      'f_pref_Friends_Per_Page' => 'required|integer'
+    ]);
+
+    $user = Auth::user();
+    $old_name = $user->name;
+    $user->name = $request['name'];
+    $user->update();
+
+    $postAudiencePrefs = UserPref::where('user_id', $user->id)->get();
+    foreach($postAudiencePrefs as $postAudiencePref)
+    {
+      if($postAudiencePref->key == 'Post Audience')
+      {
+        $postAudiencePref->value = strtolower($request['f_pref_Post_Audience']);
       }
-      if ($file) {
-          Storage::disk('local')->put($filename, File::get($file));
+      elseif($postAudiencePref->key == 'Posts Per Page')
+      {
+        $postAudiencePref->value = (string)$request['f_pref_Posts_Per_Page'];
       }
-      if ($update && $old_filename !== $filename) {
-          Storage::delete($old_filename);
+      elseif($postAudiencePref->key == 'Friends Per Page')
+      {
+        $postAudiencePref->value = (string)$request['f_pref_Friends_Per_Page'];
       }
-      return redirect()->route('account');
+      $postAudiencePref->save();
+    }
+
+    $result = (new ImageController)->saveImage($request, null);
+
+    return redirect('account')->with('message', $result);
   }
 
-  public function getUserImage($filename)
-  {
-      $file = Storage::disk('local')->get($filename);
-      return new Response($file, 200);
-  }
+    /**
+    * TODO Move to ImageController
+    **/
+    public function getUserImage($which)
+    {
+        $user = Auth::user();
+        $pic = Pic::where('user_id', $user->id)->where('profile', true)->first();
+        if($pic) {
+            $fileName = $pic->filename;
+            $tn = '';
+            if($which == 'tn') {
+                $pathParts = explode('.', $fileName);
+                $ext = $pathParts[1];
+                $fileName = $pathParts[0] . '_tn.' . $ext;
+                $tn = 'tn/';
+            }
+            $file = Storage::disk('local')->get('public/pics/' . $tn . $fileName);
+            return new Response($file, 200);
+        } else {
+            return new Response("Image not found", 404);
+        }
+    }
 }

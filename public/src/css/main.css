@@ -19,6 +19,17 @@
     font-style: italic;
 }
 
+.posts .post .info strong {
+  color: #000;
+  font-style: italic;
+}
+
+.interaction .like,
+.interaction .edit,
+.interaction .del {
+  color: #000;
+}
+
 .error,
 .success {
     text-align: center;
@@ -41,3 +52,8 @@
     background-color: #d1f9da;
     color: green;
 }
+
+.btn-primary {
+  margin-top: 1em;
+}
+

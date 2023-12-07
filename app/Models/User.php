@@ -53,4 +53,19 @@ class User extends Authenticatable
     {
         return $this->hasMany('App\Models\Like');
     }
+
+    public function pics()
+    {
+        return $this->hasMany('App\Models\Pic');
+    }
+
+    public function userPrefs()
+    {
+      return $this->hasMany('App\Models\UserPref');
+    }
+
+    public function friends()
+    {
+        return $this->hasMany('App\Models\Friend');
+    }
 }

@@ -1,0 +1,26 @@
+/*body {
+  background-color: var(--bs-dark);
+  color: var(--bs-light);
+}*/
+
+.pane {
+  background-color: #000;
+  color: #C69749;
+  --bs-border-color: #735F32;
+  --bs-primary-rgb: 115,95,50;
+  border: var(--bs-border-width) var(--bs-border-style) var(--bs-border-color)!important;
+  /*border-color: #735F32;*/
+
+  /*.border-primary*/
+  --bs-border-opacity: 1;
+  border-color: rgba(var(--bs-primary-rgb),var(--bs-border-opacity))!important;
+}
+
+.pane h3 {
+  background-color: #282A3A;
+  color: #C69749;
+}
+
+.pane label {
+  text-align: left;
+}

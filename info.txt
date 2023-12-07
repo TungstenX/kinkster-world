@@ -1,0 +1,2 @@
+Update dbd table:
+php artisan make:migration update_pics_table
